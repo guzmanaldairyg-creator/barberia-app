@@ -47,20 +47,31 @@ export default function SitioReservasCliente() {
   }, []);
 
   const cargarDatosPublicos = async () => {
-    setCargando(true);
-    const { data: servData } = await supabase.from('servicios').select('*');
-    if (servData) setServicios(servData);
+    try {
+      setCargando(true);
+      
+      // Cargar servicios obligatoriamente
+      const { data: servData, error: servError } = await supabase.from('servicios').select('*');
+      if (servError) console.error('Error cargando servicios:', servError.message);
+      if (servData) setServicios(servData);
 
-    const { data: dispData } = await supabase
-      .from('disponibilidad_barbero')
-      .select('*')
-      .order('fecha', { ascending: true });
-    if (dispData) setDisponibilidades(dispData);
+      // Cargar disponibilidad (si falla o está vacía no bloquea la app)
+      const { data: dispData } = await supabase
+        .from('disponibilidad_barbero')
+        .select('*')
+        .order('fecha', { ascending: true });
+      if (dispData) setDisponibilidades(dispData);
 
-    const { data: blokData } = await supabase.from('bloqueos_agenda').select('*');
-    if (blokData) setBloqueos(blokData);
+      // Cargar bloqueos (opcional)
+      const { data: blokData } = await supabase.from('bloqueos_agenda').select('*');
+      if (blokData) setBloqueos(blokData);
 
-    setCargando(false);
+    } catch (err) {
+      console.error('Error general cargando datos:', err);
+    } finally {
+      // Siempre apagamos el indicador de carga para que no quede pegado
+      setCargando(false);
+    }
   };
 
   const generarHorasDisponiblesDelDia = (fechaStr: string) => {
@@ -172,6 +183,8 @@ export default function SitioReservasCliente() {
 
             {cargando ? (
               <p className="text-xs text-gray-400 text-center py-6">Cargando servicios...</p>
+            ) : servicios.length === 0 ? (
+              <p className="text-xs text-red-500 text-center py-6">No hay servicios registrados en la base de datos.</p>
             ) : (
               <div className="space-y-2">
                 {servicios.map((s) => (
